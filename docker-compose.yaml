@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:      
+  postgres:
+    image: postgres:16.1-bullseye
+    restart: always
+    container_name: psql_sups
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=qwerty
+      - POSTGRES_DB=sups
+    ports:
+      - 5432:5432
+    volumes:
+      - ./scripts/1_init.up.sql:/docker-entrypoint-initdb.d/init.sql

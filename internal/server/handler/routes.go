@@ -12,26 +12,27 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
-type Consumer interface {
-}
+// type Notifier interface {
+// 	// TODO
+// }
 
-type Storager interface {
-	GetReserved(ctx context.Context, from, to time.Time) ([]models.Sup, error)
+type Storage interface {
+	GetReserved(ctx context.Context, from, to string) ([]models.Sup, error)
 	CreateApprove(ctx context.Context, approve models.Approve) (int64, error)
 }
 
 type CustomRouter struct {
 	*chi.Mux
 
-	consumer Consumer
-	storager Storager
+	//notifier Notifier
+	storage Storage
 
 	timeout time.Duration
 	log     *logs.CustomLog
 }
 
-func New(c Consumer, s Storager, domains []string, timeout time.Duration, log *logs.CustomLog) http.Handler {
-	r := CustomRouter{chi.NewRouter(), c, s, timeout, log}
+func New( /* n Notifier */ s Storage, domains []string, timeout time.Duration, log *logs.CustomLog) http.Handler {
+	r := CustomRouter{chi.NewRouter() /* n */, s, timeout, log}
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)

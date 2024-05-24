@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
@@ -12,6 +13,8 @@ import (
 type Config struct {
 	Env        string         `yaml:"env" env-required:"true"`
 	TgToken    string         `env:"TG_API_BOT_TOKEN" env-required:"true"`
+	TgBotHost  string         `yaml:"tgBothost"`
+	TgAdmins   []string       `env:"TG_API_BOT_ADMINS" env-required:"true"`
 	CtxTimeout time.Duration  `yaml:"ctx_timeout"`
 	Storage    Postgres       `yaml:"psql_storage"`
 	Server     ApiServer      `yaml:"api_server"`
@@ -56,8 +59,15 @@ func MustLoad() *Config {
 	}
 
 	cfg.TgToken = os.Getenv("TG_API_BOT_TOKEN")
-	if cfg.Storage.Password == "" {
+	if cfg.TgToken == "" {
 		panic("telegram bot token is not specified in environment variables")
+	}
+
+	adminStr := os.Getenv("TG_API_BOT_ADMINS")
+
+	cfg.TgAdmins = strings.Split(adminStr, ",")
+	if cfg.TgAdmins == nil {
+		panic("telegram bot admins is not specified in environment variables")
 	}
 
 	return cfg

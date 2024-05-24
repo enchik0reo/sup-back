@@ -16,7 +16,7 @@ type getItemsRespBodyOK struct {
 	Sups []models.Sup `json:"sups,omitempty"`
 }
 
-func idRespJSONOk(w http.ResponseWriter, status int, body getItemsRespBodyOK) error {
+func getItemsRespJSONOk(w http.ResponseWriter, status int, body getItemsRespBodyOK) error {
 	resp := getItemsRespOK{
 		Status: status,
 		Body:   body,

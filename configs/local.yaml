@@ -3,11 +3,13 @@ env: "local"
 
 ctx_timeout: 8s
 
+tgBothost: "api.telegram.org"
+
 psql_storage:
   db_driver: "postgres"
-  host: "postgres"
+  host: "0.0.0.0"
   port: "5432"
-  dbname: "command_api"
+  dbname: "sups"
   user: "postgres"
   sslmode: "disable"
 

@@ -2,7 +2,8 @@ CREATE TABLE IF NOT EXISTS reserved
 (
     reserv_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     day DATE NOT NULL,
-    fk_sup_id INT NOT NULL
+    fk_sup_id INT NOT NULL,
+    fk_approve_id INT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS sups (
@@ -12,7 +13,7 @@ CREATE TABLE IF NOT EXISTS sups (
 );
 
 CREATE TABLE IF NOT EXISTS approve (
-    approve_id INT GENERATED ALWAYS AS IDENTITY,
+    approve_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     client_phone	VARCHAR(20) NOT NULL,
     client_name	VARCHAR(100) NOT NULL,
     price INT NOT NULL,
@@ -20,11 +21,13 @@ CREATE TABLE IF NOT EXISTS approve (
     status SMALLINT DEFAULT 1
 );
 
-ALTER TABLE approve
-ADD CONSTRAINT pk_approve_id_phone PRIMARY KEY (approve_id, client_phone);
-
 ALTER TABLE reserved 
 ADD CONSTRAINT fk_reserved_sup_id FOREIGN KEY (fk_sup_id) REFERENCES sups (sup_id) ON DELETE CASCADE;
+
+ALTER TABLE reserved 
+ADD CONSTRAINT fk_reserved_approve_id FOREIGN KEY (fk_approve_id) REFERENCES approve (approve_id) ON DELETE CASCADE;
+
+CREATE INDEX idx_approve_id_phone ON approve(approve_id, client_phone);
 
 CREATE INDEX idx_reserved_day ON reserved(day);
 

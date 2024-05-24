@@ -11,14 +11,19 @@ import (
 )
 
 type getItemsRequest struct {
-	From time.Time `json:"from"`
-	To   time.Time `json:"to"`
+	From int64 `json:"from"`
+	To   int64 `json:"to"`
 }
 
 func (h *CustomRouter) getItems() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		defer r.Body.Close()
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				h.log.Error("Can't close body", h.log.Attr("error", err))
+			}
+		}()
+
 		req := getItemsRequest{}
 
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -36,7 +41,10 @@ func (h *CustomRouter) getItems() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), h.timeout)
 		defer cancel()
 
-		sups, err := h.storager.GetReserved(ctx, req.From, req.To)
+		from := time.Unix(req.From, 0).Format(time.DateOnly)
+		to := time.Unix(req.To, 0).Format(time.DateOnly)
+
+		sups, err := h.storage.GetReserved(ctx, from, to)
 		if err != nil {
 			h.log.Error("Can't create new command", h.log.Attr("error", err))
 
@@ -51,7 +59,7 @@ func (h *CustomRouter) getItems() http.HandlerFunc {
 			Sups: sups,
 		}
 
-		if err = idRespJSONOk(w, http.StatusOK, respBody); err != nil {
+		if err = getItemsRespJSONOk(w, http.StatusOK, respBody); err != nil {
 			h.log.Error("Can't make response", h.log.Attr("error", err))
 		}
 	}
@@ -60,7 +68,12 @@ func (h *CustomRouter) getItems() http.HandlerFunc {
 func (h *CustomRouter) makeReservation() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		defer r.Body.Close()
+		defer func() {
+			if err := r.Body.Close(); err != nil {
+				h.log.Error("Can't close body", h.log.Attr("error", err))
+			}
+		}()
+
 		approve := models.Approve{}
 
 		if err := json.NewDecoder(r.Body).Decode(&approve); err != nil {
@@ -78,8 +91,7 @@ func (h *CustomRouter) makeReservation() http.HandlerFunc {
 		ctx, cancel := context.WithTimeout(context.Background(), h.timeout)
 		defer cancel()
 
-		_, err := h.storager.CreateApprove(ctx, approve)
-
+		_, err := h.storage.CreateApprove(ctx, approve)
 		if err != nil {
 			h.log.Error("Can't create new command", h.log.Attr("error", err))
 
@@ -89,6 +101,8 @@ func (h *CustomRouter) makeReservation() http.HandlerFunc {
 			}
 			return
 		}
+
+		// TODO push notice to h.notifier
 
 		respBody := makeReservationRespBodyOK{
 			Created: true,

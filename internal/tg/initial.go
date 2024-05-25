@@ -12,10 +12,15 @@ import (
 )
 
 type Storage interface {
-	GetApproveList(ctx context.Context) ([]models.Approve, error)
+	GetApprovingList(ctx context.Context) ([]models.Approve, error)
 	CreateReserved(ctx context.Context, reserve models.Reserved) (int64, error)
 	ConfirmApprove(ctx context.Context, id int64, phone string) (int64, error)
 	CancelApprove(ctx context.Context, id int64, phone string) (int64, error)
+
+	GetApprovedList(ctx context.Context) ([]models.Approve, error)
+	DeleteReserved(ctx context.Context, approveID int64) (int64, error)
+
+	GetPrices(ctx context.Context) ([]models.SupInfo, error)
 }
 
 type Bot struct {
@@ -25,20 +30,23 @@ type Bot struct {
 	cmdViews map[string]ViewFunc
 	msgViews map[string]ViewFunc
 	admins   map[string]struct{}
+	chatID   int64
 	log      *logs.CustomLog
 }
 
-func NewBot(stor Storage, token string, admins []string, l *logs.CustomLog) (*Bot, error) {
+func NewBot(s Storage, token string, admins []string, l *logs.CustomLog) (*Bot, error) {
 	bot, err := tgbotapi.NewBotAPI(token)
 	if err != nil {
 		return nil, err
 	}
 
-	botApi := Bot{api: bot, stor: stor, log: l}
+	botApi := Bot{stor: s, api: bot, log: l}
 
 	botApi.addAdmins(admins)
 
-	botApi.createBasicCmdMenu()
+	botApi.createCmdHandlers()
+
+	botApi.createMsgHandlers()
 
 	return &botApi, nil
 }
@@ -63,10 +71,20 @@ func (b *Bot) Start(ctx context.Context) error {
 	}
 }
 
+func (b *Bot) PushNotice() error {
+	msg := tgbotapi.NewMessage(b.chatID, newOrder)
+
+	if _, err := b.api.Send(msg); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 	defer func() {
 		if p := recover(); p != nil {
-			b.log.Error("panic recovered", b.log.Attr("recover", p), b.log.Attr("stack", debug.Stack()))
+			b.log.Error("panic recovered", b.log.Attr("stack", string(debug.Stack())))
 		}
 	}()
 
@@ -113,6 +131,7 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 	}
 
 	if update.CallbackQuery != nil {
+
 		data := update.CallbackQuery.Data
 
 		dataView, ok := b.msgViews[data]
@@ -142,33 +161,37 @@ func (b *Bot) addAdmins(admins []string) {
 	}
 }
 
-func (b *Bot) createBasicCmdMenu() {
+func (b *Bot) createCmdHandlers() {
 	b.cmdViews = make(map[string]ViewFunc)
-	b.msgViews = make(map[string]ViewFunc)
 
-	b.addCmdView(startCmd, AdminOnly(
+	b.addCmdView(startCmd, adminOnly(
 		b.admins,
 		viewCmdStart()),
 	)
 
-	b.addCmdView(helpCmd, AdminOnly(
-		b.admins,
-		viewCmdHelp()),
-	)
-
-	b.addCmdView(showMenuCmd, AdminOnly(
+	b.addCmdView(showMenuCmd, adminOnly(
 		b.admins,
 		viewCmdMenu()),
 	)
+}
 
-	b.addMsgView(reservationList, AdminOnly(
+func (b *Bot) createMsgHandlers() {
+	b.msgViews = make(map[string]ViewFunc)
+
+	b.addMsgView(reservationList, adminOnly(
 		b.admins,
 		viewReservationList(b.stor)),
 	)
 
-	// TODO approvedList
+	b.addMsgView(approvedList, adminOnly(
+		b.admins,
+		viewApprovedList(b.stor),
+	))
 
-	// TODO getPrices
+	b.addMsgView(getPrices, adminOnly(
+		b.admins,
+		viewPriceList(b.stor),
+	))
 }
 
 func (b *Bot) addCmdView(cmd string, view ViewFunc) {

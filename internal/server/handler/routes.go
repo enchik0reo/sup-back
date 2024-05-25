@@ -12,9 +12,9 @@ import (
 	"github.com/go-chi/chi/middleware"
 )
 
-// type Notifier interface {
-// 	// TODO
-// }
+type Notifier interface {
+	PushNotice() error
+}
 
 type Storage interface {
 	GetReserved(ctx context.Context, from, to string) ([]models.Sup, error)
@@ -24,15 +24,15 @@ type Storage interface {
 type CustomRouter struct {
 	*chi.Mux
 
-	//notifier Notifier
-	storage Storage
+	notifier Notifier
+	storage  Storage
 
 	timeout time.Duration
 	log     *logs.CustomLog
 }
 
-func New( /* n Notifier */ s Storage, domains []string, timeout time.Duration, log *logs.CustomLog) http.Handler {
-	r := CustomRouter{chi.NewRouter() /* n */, s, timeout, log}
+func New(n Notifier, s Storage, domains []string, timeout time.Duration, log *logs.CustomLog) http.Handler {
+	r := CustomRouter{chi.NewRouter(), n, s, timeout, log}
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)

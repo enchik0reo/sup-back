@@ -51,8 +51,8 @@ func (s *ReservationStoage) GetReserved(ctx context.Context, from, to string) ([
 	return sups, nil
 }
 
-func (c *ReservationStoage) CreateReserved(ctx context.Context, reserve models.Reserved) (int64, error) {
-	stmt, err := c.db.PrepareContext(ctx, `INSERT INTO reserved (day, fk_sup_id, fk_approve_id)
+func (s *ReservationStoage) CreateReserved(ctx context.Context, reserve models.Reserved) (int64, error) {
+	stmt, err := s.db.PrepareContext(ctx, `INSERT INTO reserved (day, fk_sup_id, fk_approve_id)
 	VALUES ($1, $2, $3) RETURNING reserv_id`)
 	if err != nil {
 		return 0, fmt.Errorf("can't prepare statement: %w", err)
@@ -74,8 +74,8 @@ func (c *ReservationStoage) CreateReserved(ctx context.Context, reserve models.R
 	return id, nil
 }
 
-func (c *ReservationStoage) DeleteReserved(ctx context.Context, approveID int64) (int64, error) {
-	stmt, err := c.db.PrepareContext(ctx, `DELETE FROM reserved WHERE fk_approve_id = $1 RETURNING reserv_id`)
+func (s *ReservationStoage) DeleteReserved(ctx context.Context, approveID int64) (int64, error) {
+	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM reserved WHERE fk_approve_id = $1 RETURNING reserv_id`)
 	if err != nil {
 		return 0, fmt.Errorf("can't prepare statement: %w", err)
 	}
@@ -96,7 +96,7 @@ func (c *ReservationStoage) DeleteReserved(ctx context.Context, approveID int64)
 	return id, nil
 }
 
-func (s *ReservationStoage) GetApproveList(ctx context.Context) ([]models.Approve, error) {
+func (s *ReservationStoage) GetApprovingList(ctx context.Context) ([]models.Approve, error) {
 	stmt, err := s.db.PrepareContext(ctx, `SELECT approve_id, client_phone, client_name, price, order_info
 	FROM approve
 	WHERE status = 1`)
@@ -135,9 +135,10 @@ func (s *ReservationStoage) GetApproveList(ctx context.Context) ([]models.Approv
 }
 
 func (s *ReservationStoage) GetApprovedList(ctx context.Context) ([]models.Approve, error) {
-	stmt, err := s.db.PrepareContext(ctx, `SELECT client_phone, client_name, price, order_info
+	stmt, err := s.db.PrepareContext(ctx, `SELECT approve_id, client_phone, client_name, price, order_info
 	FROM approve
-	WHERE status = 2`)
+	WHERE status = 2
+	LIMIT 10`)
 	if err != nil {
 		return nil, fmt.Errorf("can't prepare statement: %w", err)
 	}
@@ -155,7 +156,7 @@ func (s *ReservationStoage) GetApprovedList(ctx context.Context) ([]models.Appro
 		approve := models.Approve{}
 		info := ""
 
-		if err := rows.Scan(&approve.ClientNumber, &approve.ClientName, &approve.FullPrice, &info); err != nil {
+		if err := rows.Scan(&approve.ID, &approve.ClientNumber, &approve.ClientName, &approve.FullPrice, &info); err != nil {
 			return nil, fmt.Errorf("can't scan row: %w", err)
 		}
 
@@ -172,8 +173,8 @@ func (s *ReservationStoage) GetApprovedList(ctx context.Context) ([]models.Appro
 	return approves, nil
 }
 
-func (c *ReservationStoage) CreateApprove(ctx context.Context, approve models.Approve) (int64, error) {
-	stmt, err := c.db.PrepareContext(ctx, `INSERT INTO approve (client_phone, client_name, price, order_info)
+func (s *ReservationStoage) CreateApprove(ctx context.Context, approve models.Approve) (int64, error) {
+	stmt, err := s.db.PrepareContext(ctx, `INSERT INTO approve (client_phone, client_name, price, order_info)
 	VALUES ($1, $2, $3, $4) RETURNING approve_id`)
 	if err != nil {
 		return 0, fmt.Errorf("can't prepare statement: %w", err)
@@ -200,8 +201,8 @@ func (c *ReservationStoage) CreateApprove(ctx context.Context, approve models.Ap
 	return id, nil
 }
 
-func (c *ReservationStoage) ConfirmApprove(ctx context.Context, id int64, phone string) (int64, error) {
-	stmt, err := c.db.PrepareContext(ctx, `UPDATE approve SET status = 2
+func (s *ReservationStoage) ConfirmApprove(ctx context.Context, id int64, phone string) (int64, error) {
+	stmt, err := s.db.PrepareContext(ctx, `UPDATE approve SET status = 2
 	WHERE approve_id = $1 AND client_phone = $2 RETURNING approve_id`)
 	if err != nil {
 		return 0, fmt.Errorf("can't prepare statement: %w", err)
@@ -221,8 +222,8 @@ func (c *ReservationStoage) ConfirmApprove(ctx context.Context, id int64, phone 
 	return id, nil
 }
 
-func (c *ReservationStoage) CancelApprove(ctx context.Context, id int64, phone string) (int64, error) {
-	stmt, err := c.db.PrepareContext(ctx, `UPDATE approve SET status = 0
+func (s *ReservationStoage) CancelApprove(ctx context.Context, id int64, phone string) (int64, error) {
+	stmt, err := s.db.PrepareContext(ctx, `UPDATE approve SET status = 0
 	WHERE approve_id = $1 AND client_phone = $2 RETURNING approve_id`)
 	if err != nil {
 		return 0, fmt.Errorf("can't prepare statement: %w", err)
@@ -240,6 +241,34 @@ func (c *ReservationStoage) CancelApprove(ctx context.Context, id int64, phone s
 	}
 
 	return id, nil
+}
+
+func (s *ReservationStoage) GetPrices(ctx context.Context) ([]models.SupInfo, error) {
+	stmt, err := s.db.PrepareContext(ctx, `SELECT sup_id, model_name, price FROM sups`)
+	if err != nil {
+		return nil, fmt.Errorf("can't prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.QueryContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("can't get price list: %w", err)
+	}
+	defer rows.Close()
+
+	sups := []models.SupInfo{}
+
+	for rows.Next() {
+		sup := models.SupInfo{}
+
+		if err := rows.Scan(&sup.ID, &sup.Name, &sup.Price); err != nil {
+			return nil, fmt.Errorf("can't scan row: %w", err)
+		}
+
+		sups = append(sups, sup)
+	}
+
+	return sups, nil
 }
 
 func supInfo(reserved []models.Reserved) []models.Sup {

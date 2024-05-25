@@ -2,10 +2,14 @@ package models
 
 import "time"
 
+type SupInfo struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"model_name"`
+	Price int64  `json:"price"`
+}
+
 type Sup struct {
-	ID           int64       `json:"id"`
-	Name         string      `json:"model_name"`
-	Price        int64       `json:"price"`
+	SupInfo
 	ReservedDays []time.Time `json:"reserved_days"`
 }
 
@@ -22,6 +26,11 @@ type Approve struct {
 	ClientName   string       `json:"client_name"`
 	SupsInfo     []ApproveSup `json:"sups_info"`
 	FullPrice    int64        `json:"price"`
+}
+
+type ApproveData struct {
+	ID           int64  `json:"id"`
+	ClientNumber string `json:"client_phone"`
 }
 
 type Reserved struct {

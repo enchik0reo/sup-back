@@ -65,6 +65,21 @@ func (h *CustomRouter) getItems() http.HandlerFunc {
 	}
 }
 
+type requestSup struct {
+	ID   int64  `json:"id"`
+	Name string `json:"model_name"`
+	From int64  `json:"from"`
+	To   int64  `json:"to"`
+}
+
+type makeReservationRequest struct {
+	ID           int64        `json:"id"`
+	ClientNumber string       `json:"client_phone"`
+	ClientName   string       `json:"client_name"`
+	SupsInfo     []requestSup `json:"sups_info"`
+	FullPrice    int64        `json:"price"`
+}
+
 func (h *CustomRouter) makeReservation() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
@@ -74,9 +89,9 @@ func (h *CustomRouter) makeReservation() http.HandlerFunc {
 			}
 		}()
 
-		approve := models.Approve{}
+		req := makeReservationRequest{}
 
-		if err := json.NewDecoder(r.Body).Decode(&approve); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			if !strings.Contains(err.Error(), "EOF") {
 				h.log.Debug("Can't decode body from get items request", h.log.Attr("error", err))
 
@@ -86,6 +101,21 @@ func (h *CustomRouter) makeReservation() http.HandlerFunc {
 				}
 				return
 			}
+		}
+
+		approve := models.Approve{
+			SupsInfo: make([]models.ApproveSup, len(req.SupsInfo)),
+		}
+
+		approve.ID = req.ID
+		approve.ClientNumber = req.ClientNumber
+		approve.ClientName = req.ClientName
+		approve.FullPrice = req.FullPrice
+		for i, info := range req.SupsInfo {
+			approve.SupsInfo[i].ID = info.ID
+			approve.SupsInfo[i].Name = info.Name
+			approve.SupsInfo[i].From = time.Unix(info.From, 0)
+			approve.SupsInfo[i].To = time.Unix(info.To, 0)
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), h.timeout)
@@ -102,7 +132,9 @@ func (h *CustomRouter) makeReservation() http.HandlerFunc {
 			return
 		}
 
-		// TODO push notice to h.notifier
+		if err := h.notifier.PushNotice(); err != nil {
+			h.log.Error("Can't push notification", h.log.Attr("error", err))
+		}
 
 		respBody := makeReservationRespBodyOK{
 			Created: true,

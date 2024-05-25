@@ -49,7 +49,7 @@ func New() *App {
 		os.Exit(1)
 	}
 
-	h := handler.New(rS, a.cfg.Frontend.Domains, a.cfg.Server.Timeout, a.log)
+	h := handler.New(a.tgBot, rS, a.cfg.Frontend.Domains, a.cfg.Server.Timeout, a.log)
 
 	a.srv = server.New(h, &a.cfg.Server, a.log)
 

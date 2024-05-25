@@ -15,6 +15,7 @@ type Config struct {
 	TgToken    string         `env:"TG_API_BOT_TOKEN" env-required:"true"`
 	TgBotHost  string         `yaml:"tgBothost"`
 	TgAdmins   []string       `env:"TG_API_BOT_ADMINS" env-required:"true"`
+	Salt       string         `env:"TG_SALT" env-required:"true"`
 	CtxTimeout time.Duration  `yaml:"ctx_timeout"`
 	Storage    Postgres       `yaml:"psql_storage"`
 	Server     ApiServer      `yaml:"api_server"`
@@ -68,6 +69,11 @@ func MustLoad() *Config {
 	cfg.TgAdmins = strings.Split(adminStr, ",")
 	if cfg.TgAdmins == nil {
 		panic("telegram bot admins is not specified in environment variables")
+	}
+
+	cfg.Salt = os.Getenv("TG_SALT")
+	if cfg.Salt == "" {
+		panic("salt is not specified in environment variables")
 	}
 
 	return cfg

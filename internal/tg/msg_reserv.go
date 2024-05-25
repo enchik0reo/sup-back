@@ -2,7 +2,6 @@ package tg
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -12,15 +11,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type approveData struct {
-	models.Approve
-	meta string
-}
-
 func viewReservationList(storage Storage) ViewFunc {
 	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 
-		list, err := storage.GetApproveList(ctx)
+		list, err := storage.GetApprovingList(ctx)
 		if err != nil {
 			return err
 		}
@@ -28,17 +22,14 @@ func viewReservationList(storage Storage) ViewFunc {
 		rows := make([][]tgbotapi.InlineKeyboardButton, 0, len(list))
 
 		for _, elem := range list {
-			info := formatInfo(elem)
-			data, err := formatData(elem)
-			if err != nil {
-				return err
-			}
+			info := formatOrderInfo(elem)
+			data := formatData(elem)
 
 			btn := tgbotapi.NewInlineKeyboardButtonData(info, data)
 
 			rows = append(rows, tgbotapi.NewInlineKeyboardRow(btn))
 
-			bot.addMsgView(data, AdminOnly(
+			bot.addMsgView(data, adminOnly(
 				bot.admins,
 				viewReservationOptions(data, elem),
 			))
@@ -56,7 +47,7 @@ func viewReservationList(storage Storage) ViewFunc {
 
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
 
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Список заказов:")
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Необработанных заказов: %d", len(rows)))
 		msg.ReplyMarkup = keyboard
 
 		if _, err := bot.api.Send(msg); err != nil {
@@ -70,45 +61,28 @@ func viewReservationList(storage Storage) ViewFunc {
 func viewReservationOptions(data string, approve models.Approve) ViewFunc {
 	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 
-		data1, err := addMeta(data, showPhoneNumber)
-		if err != nil {
-			return err
-		}
-
-		data2, err := addMeta(data, approveReserv)
-		if err != nil {
-			return err
-		}
-
-		data3, err := addMeta(data, declineReserv)
-		if err != nil {
-			return err
-		}
-
-		btn1 := tgbotapi.NewInlineKeyboardButtonData(showPhoneNumber, data1)
-		row1 := tgbotapi.NewInlineKeyboardRow(btn1)
-		bot.addMsgView(data1, AdminOnly(
-			bot.admins,
-			viewReservationPhone(approve.ClientNumber),
-		))
+		data2 := fmt.Sprintf("%s %s", data, approveReserv)
+		data3 := fmt.Sprintf("%s %s", data, declineReserv)
 
 		btn2 := tgbotapi.NewInlineKeyboardButtonData(approveReserv, data2)
 		row2 := tgbotapi.NewInlineKeyboardRow(btn2)
-		bot.addMsgView(data2, AdminOnly(
+		bot.addMsgView(data2, adminOnly(
 			bot.admins,
-			viewReservationApprove(approve.ClientNumber, data, data1, data2, data3),
+			viewReservationApprove(approve, data, data2, data3),
 		))
 
 		btn3 := tgbotapi.NewInlineKeyboardButtonData(declineReserv, data3)
 		row3 := tgbotapi.NewInlineKeyboardRow(btn3)
-		bot.addMsgView(data3, AdminOnly(
+		bot.addMsgView(data3, adminOnly(
 			bot.admins,
-			viewReservationDecline(approve.ClientNumber),
+			viewReservationDecline(approve, data, data2, data3),
 		))
 
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(row1, row2, row3)
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(row2, row3)
 
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, fmt.Sprintf("Заказ №%d:", approve.ID))
+		info := formatInfo(approve)
+
+		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, info)
 		msg.ReplyMarkup = keyboard
 
 		if _, err := bot.api.Send(msg); err != nil {
@@ -119,19 +93,7 @@ func viewReservationOptions(data string, approve models.Approve) ViewFunc {
 	}
 }
 
-func viewReservationPhone(phone string) ViewFunc {
-	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, phone)
-
-		if _, err := bot.api.Send(msg); err != nil {
-			return err
-		}
-
-		return nil
-	}
-}
-
-func viewReservationApprove(datas ...string) ViewFunc {
+func viewReservationApprove(approve models.Approve, datas ...string) ViewFunc {
 	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 		defer func() {
 			for _, data := range datas {
@@ -139,16 +101,9 @@ func viewReservationApprove(datas ...string) ViewFunc {
 			}
 		}()
 
-		ad := approveData{}
+		approveToStorage(ctx, bot, approve)
 
-		err := json.Unmarshal([]byte(datas[2]), &ad)
-		if err != nil {
-			return err
-		}
-
-		approveToStorage(ctx, bot, ad)
-
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, approved)
+		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, approved)
 
 		if _, err := bot.api.Send(msg); err != nil {
 			return err
@@ -158,15 +113,15 @@ func viewReservationApprove(datas ...string) ViewFunc {
 	}
 }
 
-func approveToStorage(ctx context.Context, bot *Bot, ad approveData) error {
-	_, err := bot.stor.ConfirmApprove(ctx, ad.ID, ad.ClientNumber)
+func approveToStorage(ctx context.Context, bot *Bot, approve models.Approve) error {
+	_, err := bot.stor.ConfirmApprove(ctx, approve.ID, approve.ClientNumber)
 	if err != nil {
 		return fmt.Errorf("can't confirm approve: %v", err)
 	}
 
-	for _, info := range ad.SupsInfo {
+	for _, info := range approve.SupsInfo {
 		r := models.Reserved{}
-		r.ApproveID = ad.ID
+		r.ApproveID = approve.ID
 		r.ModelID = info.ID
 
 		temp := info.From
@@ -177,22 +132,16 @@ func approveToStorage(ctx context.Context, bot *Bot, ad approveData) error {
 			return fmt.Errorf("can't create reserved: %v", err)
 		}
 
-		for temp.Before(info.To) {
+		for {
 			temp = temp.AddDate(0, 0, 1)
 			r.Day = temp
-
-			_, err = bot.stor.CreateReserved(ctx, r)
-			if err != nil {
-				return fmt.Errorf("can't create reserved: %v", err)
-			}
-		}
-
-		if temp != info.From {
-			r.Day = temp
-
-			_, err = bot.stor.CreateReserved(ctx, r)
-			if err != nil {
-				return fmt.Errorf("can't create reserved: %v", err)
+			if temp.Before(info.To) {
+				_, err = bot.stor.CreateReserved(ctx, r)
+				if err != nil {
+					return fmt.Errorf("can't create reserved: %v", err)
+				}
+			} else {
+				break
 			}
 		}
 	}
@@ -200,7 +149,7 @@ func approveToStorage(ctx context.Context, bot *Bot, ad approveData) error {
 	return nil
 }
 
-func viewReservationDecline(datas ...string) ViewFunc {
+func viewReservationDecline(approve models.Approve, datas ...string) ViewFunc {
 	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 		defer func() {
 			for _, data := range datas {
@@ -208,19 +157,12 @@ func viewReservationDecline(datas ...string) ViewFunc {
 			}
 		}()
 
-		ad := approveData{}
-
-		err := json.Unmarshal([]byte(datas[3]), &ad)
+		_, err := bot.stor.CancelApprove(ctx, approve.ID, approve.ClientNumber)
 		if err != nil {
-			return err
+			return fmt.Errorf("can't decline approve: %v", err)
 		}
 
-		_, err = bot.stor.CancelApprove(ctx, ad.ID, ad.ClientNumber)
-		if err != nil {
-			return fmt.Errorf("can't confirm approve: %v", err)
-		}
-
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, declined)
+		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, declined)
 
 		if _, err := bot.api.Send(msg); err != nil {
 			return err
@@ -230,54 +172,38 @@ func viewReservationDecline(datas ...string) ViewFunc {
 	}
 }
 
+func formatOrderInfo(approve models.Approve) string {
+	return fmt.Sprintf("Заказ №%d от %s на сумму %d₽",
+		approve.ID,
+		approve.ClientName,
+		approve.FullPrice,
+	)
+}
+
 func formatInfo(approve models.Approve) string {
 	b := strings.Builder{}
 
-	b.WriteString(fmt.Sprintf("Тел: %s Имя: %s Сумма: %d\n",
-		approve.ClientNumber,
+	b.WriteString(fmt.Sprintf("Заказ №%d\n\nИмя: %s\n\nТел: %s\n\n",
+		approve.ID,
 		approve.ClientName,
-		approve.FullPrice),
-	)
+		approve.ClientNumber,
+	))
+
+	b.WriteString("Бронирование:\n\n")
 
 	for _, inf := range approve.SupsInfo {
-		b.WriteString(fmt.Sprintf("Сап: %s с %s по %s\n",
+		b.WriteString(fmt.Sprintf("%s:\nс %s по %s\n\n",
 			inf.Name,
 			inf.From.Format(time.DateOnly),
 			inf.To.Format(time.DateOnly),
 		))
 	}
 
+	b.WriteString(fmt.Sprintf("Сумма: %d₽\n\n", approve.FullPrice))
+
 	return b.String()
 }
 
-func formatData(approve models.Approve) (string, error) {
-	d := approveData{
-		approve,
-		"",
-	}
-
-	data, err := json.Marshal(d)
-	if err != nil {
-		return "", err
-	}
-
-	return string(data), nil
-}
-
-func addMeta(aData, meta string) (string, error) {
-	d := approveData{}
-
-	err := json.Unmarshal([]byte(aData), &d)
-	if err != nil {
-		return "", err
-	}
-
-	d.meta = meta
-
-	data, err := json.Marshal(d)
-	if err != nil {
-		return "", err
-	}
-
-	return string(data), nil
+func formatData(approve models.Approve) string {
+	return fmt.Sprintf("%d %s", approve.ID, approve.ClientNumber)
 }

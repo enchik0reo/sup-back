@@ -6,11 +6,12 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func adminOnly(adminSet map[string]struct{}, next ViewFunc) ViewFunc {
+func adminOnly(adminSet map[string]int64, next ViewFunc) ViewFunc {
 	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 
 		if update.Message != nil {
 			if _, ok := adminSet[update.Message.From.UserName]; ok {
+				adminSet[update.Message.From.UserName] = update.Message.Chat.ID
 				return next(ctx, bot, update)
 			}
 

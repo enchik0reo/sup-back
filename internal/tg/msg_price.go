@@ -9,10 +9,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func viewPriceList(storage Storage) ViewFunc {
+func viewPriceList() ViewFunc {
 	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 
-		sups, err := storage.GetPrices(ctx)
+		sups, err := bot.stor.GetPrices(ctx)
 		if err != nil {
 			return err
 		}
@@ -33,25 +33,20 @@ func viewPriceList(storage Storage) ViewFunc {
 			))
 		}
 
-		// Для добавления нового сапа будет строчка в конце списка сапов !!!
+		btn := tgbotapi.NewInlineKeyboardButtonData(addSup, addSup)
 
-		// info := addSup
-		// data := addSup
+		rows = append(rows, tgbotapi.NewInlineKeyboardRow(btn))
 
-		// btn := tgbotapi.NewInlineKeyboardButtonData(info, data)
-
-		// rows = append(rows, tgbotapi.NewInlineKeyboardRow(btn))
-
-		// bot.addMsgView(data, adminOnly(
-		// 	bot.admins,
-		// 	viewAddSup(data, sup),
-		// ))
+		bot.addMsgView(addSup, adminOnly(
+			bot.admins,
+			viewAddSup(),
+		))
 
 		if len(rows) == 0 {
-			// keyboard := tgbotapi.NewInlineKeyboardMarkup(btn)
+			keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
 
 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Список сапов пуст.")
-			// msg.ReplyMarkup = keyboard
+			msg.ReplyMarkup = keyboard
 
 			if _, err := bot.api.Send(msg); err != nil {
 				return err
@@ -60,11 +55,9 @@ func viewPriceList(storage Storage) ViewFunc {
 			return nil
 		}
 
-		// rows = append(rows, btn)
-
 		keyboard := tgbotapi.NewInlineKeyboardMarkup(rows...)
 
-		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите сап или добавьте новый:")
+		msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Выберите существующий или добавьте новый:")
 		msg.ReplyMarkup = keyboard
 
 		if _, err := bot.api.Send(msg); err != nil {
@@ -79,17 +72,23 @@ func viewSupOptions(data string, sup models.SupInfo) ViewFunc {
 	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 
 		data1 := fmt.Sprintf("%s %s", data, editPrice)
+		data2 := fmt.Sprintf("%s %s", data, deleteSup)
 
-		btn1 := tgbotapi.NewInlineKeyboardButtonData(deleteApproved, data1)
+		btn1 := tgbotapi.NewInlineKeyboardButtonData(editPrice, data1)
 		row1 := tgbotapi.NewInlineKeyboardRow(btn1)
 		bot.addMsgView(data1, adminOnly(
 			bot.admins,
-			viewEditPrice(sup, data, data1),
+			viewEditPrice(sup.ID, data, data1),
 		))
 
-		// TODO Добавить кнопку удаления сапа viewDeleteSup
+		btn2 := tgbotapi.NewInlineKeyboardButtonData(deleteSup, data2)
+		row2 := tgbotapi.NewInlineKeyboardRow(btn2)
+		bot.addMsgView(data2, adminOnly(
+			bot.admins,
+			viewDeleteSup(sup.ID, data, data1, data2),
+		))
 
-		keyboard := tgbotapi.NewInlineKeyboardMarkup(row1)
+		keyboard := tgbotapi.NewInlineKeyboardMarkup(row1, row2)
 
 		info := formatPriceInfo(sup)
 
@@ -104,8 +103,7 @@ func viewSupOptions(data string, sup models.SupInfo) ViewFunc {
 	}
 }
 
-// TODO ...
-func viewEditPrice(sup models.SupInfo, datas ...string) ViewFunc {
+func viewEditPrice(id int64, datas ...string) ViewFunc {
 	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 		defer func() {
 			for _, data := range datas {
@@ -113,17 +111,9 @@ func viewEditPrice(sup models.SupInfo, datas ...string) ViewFunc {
 			}
 		}()
 
-		_, err := bot.stor.DeleteReserved(ctx, approve.ID)
-		if err != nil {
-			return fmt.Errorf("can't delete reserved: %v", err)
-		}
-
-		_, err = bot.stor.CancelApprove(ctx, approve.ID, approve.ClientNumber)
-		if err != nil {
-			return fmt.Errorf("can't delete reserved: %v", err)
-		}
-
-		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, declinedApproved)
+		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID,
+			fmt.Sprintf("Введите команду /%s, id сапа и новую цену:"+
+				"\n\nПример:\n/%[1]s %d 1000", editPriceCmd, id))
 
 		if _, err := bot.api.Send(msg); err != nil {
 			return err
@@ -133,9 +123,42 @@ func viewEditPrice(sup models.SupInfo, datas ...string) ViewFunc {
 	}
 }
 
-// TODO viewAddSup
+func viewAddSup() ViewFunc {
+	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 
-// TODO viewDeleteSup
+		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID,
+			fmt.Sprintf("Введите команду /%s, имя сапа и цену:"+
+				"\n\nПример:\n/%[1]s BOMBITTO 1000", newSupCmd))
+
+		if _, err := bot.api.Send(msg); err != nil {
+			return err
+		}
+
+		return nil
+	}
+}
+
+func viewDeleteSup(id int64, datas ...string) ViewFunc {
+	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
+		defer func() {
+			for _, data := range datas {
+				bot.deleteMsg(data)
+			}
+		}()
+
+		if _, err := bot.stor.DeleteSup(ctx, id); err != nil {
+			return err
+		}
+
+		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, successDelete)
+
+		if _, err := bot.api.Send(msg); err != nil {
+			return err
+		}
+
+		return nil
+	}
+}
 
 func formatPriceInfo(sup models.SupInfo) string {
 	return fmt.Sprintf("ID: %d\n\nНазвание модели: %s\n\nЦена за сутки в будни: %d₽",

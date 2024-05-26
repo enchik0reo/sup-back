@@ -11,10 +11,10 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func viewReservationList(storage Storage) ViewFunc {
+func viewReservationList() ViewFunc {
 	return func(ctx context.Context, bot *Bot, update tgbotapi.Update) error {
 
-		list, err := storage.GetApprovingList(ctx)
+		list, err := bot.stor.GetApprovingList(ctx)
 		if err != nil {
 			return err
 		}

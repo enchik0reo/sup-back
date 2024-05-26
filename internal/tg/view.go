@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	startCmd    = "start"
-	helpCmd     = "help"
-	showMenuCmd = "menu"
+	startCmd     = "start"
+	showMenuCmd  = "menu"
+	editPriceCmd = "price"
+	newSupCmd    = "new"
 )
 
 const (
@@ -26,11 +27,14 @@ const (
 	deleteApproved   = "🗑 Удалить заказ"
 	declinedApproved = "🧹 Заказ удален"
 
-	getPrices = "📊 Цены сапов"
-	editPrice = "⚙️ Изменить цену"
-	DeleteSup = "🏊 Удалить сап"
+	getPrices        = "📝 Список сапов"
+	editPrice        = "📊 Изменить цену"
+	successEditPrice = "💵 Цена изменена"
+	deleteSup        = "🏊 Удалить сап"
+	successDelete    = "🧹 Сап удален"
 
-	addSup = "🏄 Добавить новый сап"
+	addSup     = "🏄 Добавить новый сап"
+	successAdd = "🎉 Сап добавлен"
 )
 
 type ViewFunc func(ctx context.Context, bot *Bot, update tgbotapi.Update) error

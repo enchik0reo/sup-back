@@ -21,6 +21,9 @@ type Storage interface {
 	DeleteReserved(ctx context.Context, approveID int64) (int64, error)
 
 	GetPrices(ctx context.Context) ([]models.SupInfo, error)
+	EditPrice(ctx context.Context, id, newPrice int64) (int64, error)
+	NewSup(ctx context.Context, name string, price int64) (int64, error)
+	DeleteSup(ctx context.Context, supID int64) (int64, error)
 }
 
 type Bot struct {
@@ -29,8 +32,7 @@ type Bot struct {
 	api      *tgbotapi.BotAPI
 	cmdViews map[string]ViewFunc
 	msgViews map[string]ViewFunc
-	admins   map[string]struct{}
-	chatID   int64
+	admins   map[string]int64
 	log      *logs.CustomLog
 }
 
@@ -72,10 +74,12 @@ func (b *Bot) Start(ctx context.Context) error {
 }
 
 func (b *Bot) PushNotice() error {
-	msg := tgbotapi.NewMessage(b.chatID, newOrder)
+	for _, chatID := range b.admins {
+		msg := tgbotapi.NewMessage(chatID, newOrder)
 
-	if _, err := b.api.Send(msg); err != nil {
-		return err
+		if _, err := b.api.Send(msg); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -154,10 +158,10 @@ func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {
 }
 
 func (b *Bot) addAdmins(admins []string) {
-	b.admins = make(map[string]struct{}, len(admins))
+	b.admins = make(map[string]int64, len(admins))
 
 	for _, a := range admins {
-		b.admins[a] = struct{}{}
+		b.admins[a] = 0
 	}
 }
 
@@ -173,6 +177,16 @@ func (b *Bot) createCmdHandlers() {
 		b.admins,
 		viewCmdMenu()),
 	)
+
+	b.addCmdView(editPriceCmd, adminOnly(
+		b.admins,
+		viewCmdEditPirce()),
+	)
+
+	b.addCmdView(newSupCmd, adminOnly(
+		b.admins,
+		viewCmdNewSup()),
+	)
 }
 
 func (b *Bot) createMsgHandlers() {
@@ -180,17 +194,17 @@ func (b *Bot) createMsgHandlers() {
 
 	b.addMsgView(reservationList, adminOnly(
 		b.admins,
-		viewReservationList(b.stor)),
+		viewReservationList()),
 	)
 
 	b.addMsgView(approvedList, adminOnly(
 		b.admins,
-		viewApprovedList(b.stor),
+		viewApprovedList(),
 	))
 
 	b.addMsgView(getPrices, adminOnly(
 		b.admins,
-		viewPriceList(b.stor),
+		viewPriceList(),
 	))
 }
 

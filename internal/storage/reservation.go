@@ -3,21 +3,20 @@ package storage
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 
 	"github.com/enchik0reo/sup-back/internal/models"
 )
 
-type ReservationStoage struct {
+type RentStoage struct {
 	db *sql.DB
 }
 
-func NewReservationStorage(db *sql.DB) *ReservationStoage {
-	return &ReservationStoage{db: db}
+func NewRentStorage(db *sql.DB) *RentStoage {
+	return &RentStoage{db: db}
 }
 
-func (s *ReservationStoage) GetReserved(ctx context.Context, from, to string) ([]models.Sup, error) {
+func (s *RentStoage) GetReserved(ctx context.Context, from, to string) ([]models.Sup, error) {
 	stmt, err := s.db.PrepareContext(ctx, `SELECT r.day, r.fk_sup_id, s.model_name, s.price
 	FROM reserved r
 	INNER JOIN sups s ON r.fk_sup_id = s.sup_id
@@ -51,7 +50,7 @@ func (s *ReservationStoage) GetReserved(ctx context.Context, from, to string) ([
 	return sups, nil
 }
 
-func (s *ReservationStoage) CreateReserved(ctx context.Context, reserve models.Reserved) (int64, error) {
+func (s *RentStoage) CreateReserved(ctx context.Context, reserve models.Reserved) (int64, error) {
 	stmt, err := s.db.PrepareContext(ctx, `INSERT INTO reserved (day, fk_sup_id, fk_approve_id)
 	VALUES ($1, $2, $3) RETURNING reserv_id`)
 	if err != nil {
@@ -74,7 +73,32 @@ func (s *ReservationStoage) CreateReserved(ctx context.Context, reserve models.R
 	return id, nil
 }
 
-func (s *ReservationStoage) DeleteReserved(ctx context.Context, approveID int64) (int64, error) {
+func (s *RentStoage) CreateReservedList(ctx context.Context, reserveList []models.Reserved) error {
+	stmt, err := s.db.PrepareContext(ctx, `INSERT INTO reserved (day, fk_sup_id, fk_approve_id)
+	VALUES ($1, $2, $3) RETURNING reserv_id`)
+	if err != nil {
+		return fmt.Errorf("can't prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	for _, reserve := range reserveList {
+		row := stmt.QueryRowContext(ctx, reserve.Day, reserve.ModelID, reserve.ApproveID)
+
+		if err := row.Err(); err != nil {
+			return fmt.Errorf("can't create reserve: %w", err)
+		}
+
+		var id int64
+
+		if err := row.Scan(&id); err != nil {
+			return fmt.Errorf("can't get last insert id: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (s *RentStoage) DeleteReserved(ctx context.Context, approveID int64) (int64, error) {
 	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM reserved WHERE fk_approve_id = $1 RETURNING reserv_id`)
 	if err != nil {
 		return 0, fmt.Errorf("can't prepare statement: %w", err)
@@ -85,247 +109,6 @@ func (s *ReservationStoage) DeleteReserved(ctx context.Context, approveID int64)
 
 	if err := row.Err(); err != nil {
 		return 0, fmt.Errorf("can't delete reserve: %w", err)
-	}
-
-	var id int64
-
-	if err := row.Scan(&id); err != nil {
-		return 0, fmt.Errorf("can't get last deleted id: %w", err)
-	}
-
-	return id, nil
-}
-
-func (s *ReservationStoage) GetApprovingList(ctx context.Context) ([]models.Approve, error) {
-	stmt, err := s.db.PrepareContext(ctx, `SELECT approve_id, client_phone, client_name, price, order_info
-	FROM approve
-	WHERE status = 1`)
-	if err != nil {
-		return nil, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.QueryContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("can't get approve list: %w", err)
-	}
-	defer rows.Close()
-
-	approves := []models.Approve{}
-
-	for rows.Next() {
-		approve := models.Approve{}
-		info := ""
-
-		if err := rows.Scan(&approve.ID, &approve.ClientNumber, &approve.ClientName, &approve.FullPrice, &info); err != nil {
-			return nil, fmt.Errorf("can't scan row: %w", err)
-		}
-
-		supInfo, err := infoFromJSON(info)
-		if err != nil {
-			return nil, fmt.Errorf("can't make sup info: %w", err)
-		}
-
-		approve.SupsInfo = supInfo
-
-		approves = append(approves, approve)
-	}
-
-	return approves, nil
-}
-
-func (s *ReservationStoage) GetApprovedList(ctx context.Context) ([]models.Approve, error) {
-	stmt, err := s.db.PrepareContext(ctx, `SELECT approve_id, client_phone, client_name, price, order_info
-	FROM approve
-	WHERE status = 2
-	LIMIT 10`)
-	if err != nil {
-		return nil, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.QueryContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("can't get approve list: %w", err)
-	}
-	defer rows.Close()
-
-	approves := []models.Approve{}
-
-	for rows.Next() {
-		approve := models.Approve{}
-		info := ""
-
-		if err := rows.Scan(&approve.ID, &approve.ClientNumber, &approve.ClientName, &approve.FullPrice, &info); err != nil {
-			return nil, fmt.Errorf("can't scan row: %w", err)
-		}
-
-		supInfo, err := infoFromJSON(info)
-		if err != nil {
-			return nil, fmt.Errorf("can't make sup info: %w", err)
-		}
-
-		approve.SupsInfo = supInfo
-
-		approves = append(approves, approve)
-	}
-
-	return approves, nil
-}
-
-func (s *ReservationStoage) CreateApprove(ctx context.Context, approve models.Approve) (int64, error) {
-	stmt, err := s.db.PrepareContext(ctx, `INSERT INTO approve (client_phone, client_name, price, order_info)
-	VALUES ($1, $2, $3, $4) RETURNING approve_id`)
-	if err != nil {
-		return 0, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	info, err := infoToJSON(approve.SupsInfo)
-	if err != nil {
-		return 0, fmt.Errorf("can't make info: %w", err)
-	}
-
-	row := stmt.QueryRowContext(ctx, approve.ClientNumber, approve.ClientName, approve.FullPrice, info)
-
-	if err := row.Err(); err != nil {
-		return 0, fmt.Errorf("can't create approve: %w", err)
-	}
-
-	var id int64
-
-	if err := row.Scan(&id); err != nil {
-		return 0, fmt.Errorf("can't get last insert id: %w", err)
-	}
-
-	return id, nil
-}
-
-func (s *ReservationStoage) ConfirmApprove(ctx context.Context, id int64, phone string) (int64, error) {
-	stmt, err := s.db.PrepareContext(ctx, `UPDATE approve SET status = 2
-	WHERE approve_id = $1 AND client_phone = $2 RETURNING approve_id`)
-	if err != nil {
-		return 0, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, id, phone)
-
-	if err := row.Err(); err != nil {
-		return 0, fmt.Errorf("can't confirm approve: %w", err)
-	}
-
-	if err := row.Scan(&id); err != nil {
-		return 0, fmt.Errorf("can't get confirmed id: %w", err)
-	}
-
-	return id, nil
-}
-
-func (s *ReservationStoage) CancelApprove(ctx context.Context, id int64, phone string) (int64, error) {
-	stmt, err := s.db.PrepareContext(ctx, `UPDATE approve SET status = 0
-	WHERE approve_id = $1 AND client_phone = $2 RETURNING approve_id`)
-	if err != nil {
-		return 0, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, id, phone)
-
-	if err := row.Err(); err != nil {
-		return 0, fmt.Errorf("can't cancel approve: %w", err)
-	}
-
-	if err := row.Scan(&id); err != nil {
-		return 0, fmt.Errorf("can't get canceled id: %w", err)
-	}
-
-	return id, nil
-}
-
-func (s *ReservationStoage) GetPrices(ctx context.Context) ([]models.SupInfo, error) {
-	stmt, err := s.db.PrepareContext(ctx, `SELECT sup_id, model_name, price FROM sups ORDER BY sup_id`)
-	if err != nil {
-		return nil, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	rows, err := stmt.QueryContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("can't get price list: %w", err)
-	}
-	defer rows.Close()
-
-	sups := []models.SupInfo{}
-
-	for rows.Next() {
-		sup := models.SupInfo{}
-
-		if err := rows.Scan(&sup.ID, &sup.Name, &sup.Price); err != nil {
-			return nil, fmt.Errorf("can't scan row: %w", err)
-		}
-
-		sups = append(sups, sup)
-	}
-
-	return sups, nil
-}
-
-func (s *ReservationStoage) EditPrice(ctx context.Context, id, newPrice int64) (int64, error) {
-	stmt, err := s.db.PrepareContext(ctx, `UPDATE sups SET price = $1
-	WHERE sup_id = $2 RETURNING sup_id`)
-	if err != nil {
-		return 0, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, newPrice, id)
-
-	if err := row.Err(); err != nil {
-		return 0, fmt.Errorf("can't edit price: %w", err)
-	}
-
-	if err := row.Scan(&id); err != nil {
-		return 0, fmt.Errorf("can't get updated id: %w", err)
-	}
-
-	return id, nil
-}
-
-func (s *ReservationStoage) NewSup(ctx context.Context, name string, price int64) (int64, error) {
-	stmt, err := s.db.PrepareContext(ctx, `INSERT INTO sups (model_name, price)
-	VALUES ($1, $2) RETURNING sup_id`)
-	if err != nil {
-		return 0, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, name, price)
-
-	if err := row.Err(); err != nil {
-		return 0, fmt.Errorf("can't add sup: %w", err)
-	}
-
-	var id int64
-
-	if err := row.Scan(&id); err != nil {
-		return 0, fmt.Errorf("can't get inserted id: %w", err)
-	}
-
-	return id, nil
-}
-
-func (s *ReservationStoage) DeleteSup(ctx context.Context, supID int64) (int64, error) {
-	stmt, err := s.db.PrepareContext(ctx, `DELETE FROM sups WHERE sup_id = $1 RETURNING sup_id`)
-	if err != nil {
-		return 0, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, supID)
-
-	if err := row.Err(); err != nil {
-		return 0, fmt.Errorf("can't delete sup: %w", err)
 	}
 
 	var id int64
@@ -352,23 +135,4 @@ func supInfo(reserved []models.Reserved) []models.Sup {
 	}
 
 	return sups
-}
-
-func infoToJSON(supsInfo []models.ApproveSup) (string, error) {
-	data, err := json.Marshal(supsInfo)
-	if err != nil {
-		return "", err
-	}
-
-	return string(data), nil
-}
-
-func infoFromJSON(data string) ([]models.ApproveSup, error) {
-	res := []models.ApproveSup{}
-
-	if err := json.Unmarshal([]byte(data), &res); err != nil {
-		return nil, err
-	}
-
-	return res, nil
 }

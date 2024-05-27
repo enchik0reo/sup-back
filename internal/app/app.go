@@ -41,7 +41,7 @@ func New() *App {
 		os.Exit(1)
 	}
 
-	rS := storage.NewReservationStorage(a.db)
+	rS := storage.NewRentStorage(a.db)
 
 	a.tgBot, err = tg.NewBot(rS, a.cfg.TgToken, a.cfg.TgAdmins, a.log)
 	if err != nil {

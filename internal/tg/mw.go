@@ -25,6 +25,7 @@ func adminOnly(adminSet map[string]int64, next ViewFunc) ViewFunc {
 
 		if update.CallbackQuery != nil {
 			if _, ok := adminSet[update.CallbackQuery.From.UserName]; ok {
+				adminSet[update.CallbackQuery.From.UserName] = update.CallbackQuery.Message.Chat.ID
 				return next(ctx, bot, update)
 			}
 

@@ -65,11 +65,11 @@ func MustLoad() *Config {
 	}
 
 	adminStr := os.Getenv("TG_API_BOT_ADMINS")
-
-	cfg.TgAdmins = strings.Split(adminStr, ",")
-	if cfg.TgAdmins == nil {
+	if adminStr == "" {
 		panic("telegram bot admins is not specified in environment variables")
 	}
+
+	cfg.TgAdmins = strings.Split(adminStr, ",")
 
 	cfg.Salt = os.Getenv("TG_SALT")
 	if cfg.Salt == "" {

@@ -127,23 +127,25 @@ func approveToStorage(ctx context.Context, bot *Bot, approve models.Approve) err
 		temp := info.From
 		r.Day = temp
 
-		_, err = bot.stor.CreateReserved(ctx, r)
-		if err != nil {
-			return fmt.Errorf("can't create reserved: %v", err)
-		}
+		reserveList := make([]models.Reserved, 0, len(approve.SupsInfo))
+
+		reserveList = append(reserveList, r)
 
 		for {
 			temp = temp.AddDate(0, 0, 1)
 			r.Day = temp
+
 			if temp.Before(info.To) {
-				_, err = bot.stor.CreateReserved(ctx, r)
-				if err != nil {
-					return fmt.Errorf("can't create reserved: %v", err)
-				}
+				reserveList = append(reserveList, r)
 			} else {
 				break
 			}
 		}
+
+		if err := bot.stor.CreateReservedList(ctx, reserveList); err != nil {
+			return err
+		}
+
 	}
 
 	return nil

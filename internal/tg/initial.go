@@ -73,16 +73,14 @@ func (b *Bot) Start(ctx context.Context) error {
 	}
 }
 
-func (b *Bot) PushNotice() error {
-	for _, chatID := range b.admins {
+func (b *Bot) PushNotice() {
+	for name, chatID := range b.admins {
 		msg := tgbotapi.NewMessage(chatID, newOrder)
 
 		if _, err := b.api.Send(msg); err != nil {
-			return err
+			b.log.Info("can't push notice to chat", b.log.Attr("admin", name), b.log.Attr("error", err))
 		}
 	}
-
-	return nil
 }
 
 func (b *Bot) handleUpdate(ctx context.Context, update tgbotapi.Update) {

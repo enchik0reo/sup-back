@@ -13,7 +13,7 @@ import (
 )
 
 type Notifier interface {
-	PushNotice() error
+	PushNotice()
 }
 
 type Storage interface {

@@ -188,9 +188,7 @@ func (h *CustomRouter) makeReservation() http.HandlerFunc {
 			return
 		}
 
-		if err := h.notifier.PushNotice(); err != nil {
-			h.log.Error("Can't push notification", h.log.Attr("error", err))
-		}
+		h.notifier.PushNotice()
 
 		respBody := makeReservationRespBodyOK{
 			Created: true,

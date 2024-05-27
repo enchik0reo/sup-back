@@ -13,7 +13,7 @@ import (
 func corsSettings(domains []string) func(next http.Handler) http.Handler {
 	h := cors.Handler(cors.Options{
 		AllowedOrigins:   domains,
-		AllowedMethods:   []string{http.MethodPost},
+		AllowedMethods:   []string{http.MethodGet, http.MethodPost},
 		AllowedHeaders:   []string{"Content-Type"},
 		ExposedHeaders:   []string{"Content-Type"},
 		AllowCredentials: true,

@@ -73,7 +73,6 @@ type requestSup struct {
 }
 
 type makeReservationRequest struct {
-	ID           int64        `json:"id"`
 	ClientNumber string       `json:"client_phone"`
 	ClientName   string       `json:"client_name"`
 	SupsInfo     []requestSup `json:"sups_info"`
@@ -107,7 +106,6 @@ func (h *CustomRouter) makeReservation() http.HandlerFunc {
 			SupsInfo: make([]models.ApproveSup, len(req.SupsInfo)),
 		}
 
-		approve.ID = req.ID
 		approve.ClientNumber = req.ClientNumber
 		approve.ClientName = req.ClientName
 		approve.FullPrice = req.FullPrice

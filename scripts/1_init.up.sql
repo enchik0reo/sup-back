@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS sups (
 
 CREATE TABLE IF NOT EXISTS approve (
     approve_id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    client_phone	VARCHAR(20) NOT NULL,
+    client_phone	VARCHAR(200) NOT NULL,
     client_name	VARCHAR(100) NOT NULL,
     price INT NOT NULL,
     order_info TEXT NOT NULL,

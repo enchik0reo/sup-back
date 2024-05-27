@@ -8,12 +8,19 @@ import (
 	"github.com/enchik0reo/sup-back/internal/models"
 )
 
+type Tokener interface {
+	Create(phone string) (string, error)
+	Parse(tokenString string) (string, error)
+}
+
 type RentStoage struct {
+	token Tokener
+
 	db *sql.DB
 }
 
-func NewRentStorage(db *sql.DB) *RentStoage {
-	return &RentStoage{db: db}
+func NewRentStorage(db *sql.DB, t Tokener) *RentStoage {
+	return &RentStoage{db: db, token: t}
 }
 
 func (s *RentStoage) GetReserved(ctx context.Context, from, to string) ([]models.Sup, error) {

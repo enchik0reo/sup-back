@@ -9,7 +9,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// Connect returns new instance of database ...
 func Connect(cfg config.Postgres) (*sql.DB, error) {
 	dsn := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.Driver, cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.SSLMode)

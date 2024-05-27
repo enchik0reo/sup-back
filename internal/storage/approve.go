@@ -28,8 +28,9 @@ func (s *RentStoage) GetApprovingList(ctx context.Context) ([]models.Approve, er
 	for rows.Next() {
 		approve := models.Approve{}
 		info := ""
+		phoneToken := ""
 
-		if err := rows.Scan(&approve.ID, &approve.ClientNumber, &approve.ClientName, &approve.FullPrice, &info); err != nil {
+		if err := rows.Scan(&approve.ID, &phoneToken, &approve.ClientName, &approve.FullPrice, &info); err != nil {
 			return nil, fmt.Errorf("can't scan row: %w", err)
 		}
 
@@ -39,6 +40,13 @@ func (s *RentStoage) GetApprovingList(ctx context.Context) ([]models.Approve, er
 		}
 
 		approve.SupsInfo = supInfo
+
+		phone, err := s.token.Parse(phoneToken)
+		if err != nil {
+			return nil, err
+		}
+
+		approve.ClientNumber = phone
 
 		approves = append(approves, approve)
 	}
@@ -67,8 +75,9 @@ func (s *RentStoage) GetApprovedList(ctx context.Context) ([]models.Approve, err
 	for rows.Next() {
 		approve := models.Approve{}
 		info := ""
+		phoneToken := ""
 
-		if err := rows.Scan(&approve.ID, &approve.ClientNumber, &approve.ClientName, &approve.FullPrice, &info); err != nil {
+		if err := rows.Scan(&approve.ID, &phoneToken, &approve.ClientName, &approve.FullPrice, &info); err != nil {
 			return nil, fmt.Errorf("can't scan row: %w", err)
 		}
 
@@ -78,6 +87,13 @@ func (s *RentStoage) GetApprovedList(ctx context.Context) ([]models.Approve, err
 		}
 
 		approve.SupsInfo = supInfo
+
+		phone, err := s.token.Parse(phoneToken)
+		if err != nil {
+			return nil, err
+		}
+
+		approve.ClientNumber = phone
 
 		approves = append(approves, approve)
 	}
@@ -98,7 +114,12 @@ func (s *RentStoage) CreateApprove(ctx context.Context, approve models.Approve) 
 		return 0, fmt.Errorf("can't make info: %w", err)
 	}
 
-	row := stmt.QueryRowContext(ctx, approve.ClientNumber, approve.ClientName, approve.FullPrice, info)
+	phoneToken, err := s.token.Create(approve.ClientNumber)
+	if err != nil {
+		return 0, fmt.Errorf("can't create token: %w", err)
+	}
+
+	row := stmt.QueryRowContext(ctx, phoneToken, approve.ClientName, approve.FullPrice, info)
 
 	if err := row.Err(); err != nil {
 		return 0, fmt.Errorf("can't create approve: %w", err)

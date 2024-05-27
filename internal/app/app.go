@@ -17,6 +17,7 @@ import (
 	"github.com/enchik0reo/sup-back/internal/server/server"
 	"github.com/enchik0reo/sup-back/internal/storage"
 	"github.com/enchik0reo/sup-back/internal/tg"
+	"github.com/enchik0reo/sup-back/internal/token"
 )
 
 type App struct {
@@ -41,7 +42,9 @@ func New() *App {
 		os.Exit(1)
 	}
 
-	rS := storage.NewRentStorage(a.db)
+	tM := token.NewManager(a.cfg.Salt)
+
+	rS := storage.NewRentStorage(a.db, tM)
 
 	a.tgBot, err = tg.NewBot(rS, a.cfg.TgToken, a.cfg.TgAdmins, a.log)
 	if err != nil {

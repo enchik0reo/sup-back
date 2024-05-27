@@ -4,18 +4,76 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/enchik0reo/sup-back/internal/models"
 )
 
+func (h *CustomRouter) getItems() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+
+		defer r.Body.Close()
+
+		from := r.URL.Query().Get("from")
+		to := r.URL.Query().Get("to")
+
+		fromTimestamp, err := strconv.Atoi(from)
+		if err != nil {
+			h.log.Debug("Can't convert from to int", h.log.Attr("error", err))
+
+			err = responseJSONError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest))
+			if err != nil {
+				h.log.Error("Can't make response", h.log.Attr("error", err))
+			}
+			return
+		}
+
+		toTimestamp, err := strconv.Atoi(to)
+		if err != nil {
+			h.log.Debug("Can't convert to to int", h.log.Attr("error", err))
+
+			err = responseJSONError(w, http.StatusBadRequest, http.StatusText(http.StatusBadRequest))
+			if err != nil {
+				h.log.Error("Can't make response", h.log.Attr("error", err))
+			}
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), h.timeout)
+		defer cancel()
+
+		fromDate := time.Unix(int64(fromTimestamp), 0).Format(time.DateOnly)
+		toDate := time.Unix(int64(toTimestamp), 0).Format(time.DateOnly)
+
+		sups, err := h.storage.GetReserved(ctx, fromDate, toDate)
+		if err != nil {
+			h.log.Error("Can't create new command", h.log.Attr("error", err))
+
+			err = responseJSONError(w, http.StatusInternalServerError, http.StatusText(http.StatusInternalServerError))
+			if err != nil {
+				h.log.Error("Can't make response", h.log.Attr("error", err))
+			}
+			return
+		}
+
+		respBody := getItemsRespBodyOK{
+			Sups: sups,
+		}
+
+		if err = getItemsRespJSONOk(w, http.StatusOK, respBody); err != nil {
+			h.log.Error("Can't make response", h.log.Attr("error", err))
+		}
+	}
+}
+
 type getItemsRequest struct {
 	From int64 `json:"from"`
 	To   int64 `json:"to"`
 }
 
-func (h *CustomRouter) getItems() http.HandlerFunc {
+func (h *CustomRouter) getItemsPost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		defer func() {

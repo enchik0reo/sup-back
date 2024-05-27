@@ -40,7 +40,8 @@ func New(n Notifier, s Storage, domains []string, timeout time.Duration, log *lo
 	r.Use(loggerMw(log))
 	r.Use(corsSettings(domains))
 
-	r.Post("/api/v1/getItems", r.getItems())
+	r.Get("/api/v1/getItems", r.getItems())
+	r.Post("/api/v1/getItems", r.getItemsPost())
 	r.Post("/api/v1/makeReservation", r.makeReservation())
 
 	return r

@@ -9,6 +9,21 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type Scrambler interface {
+	Encrypt(text string) (string, error)
+	Decrypt(text string) (string, error)
+}
+
+type RentStoage struct {
+	scrambler Scrambler
+
+	db *sql.DB
+}
+
+func NewRentStorage(db *sql.DB, s Scrambler) *RentStoage {
+	return &RentStoage{db: db, scrambler: s}
+}
+
 func Connect(cfg config.Postgres) (*sql.DB, error) {
 	dsn := fmt.Sprintf("%s://%s:%s@%s:%s/%s?sslmode=%s",
 		cfg.Driver, cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.DBName, cfg.SSLMode)

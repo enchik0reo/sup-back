@@ -13,11 +13,11 @@ import (
 
 	"github.com/enchik0reo/sup-back/internal/config"
 	"github.com/enchik0reo/sup-back/internal/logs"
+	"github.com/enchik0reo/sup-back/internal/scrambler"
 	"github.com/enchik0reo/sup-back/internal/server/handler"
 	"github.com/enchik0reo/sup-back/internal/server/server"
 	"github.com/enchik0reo/sup-back/internal/storage"
 	"github.com/enchik0reo/sup-back/internal/tg"
-	"github.com/enchik0reo/sup-back/internal/token"
 )
 
 type App struct {
@@ -42,7 +42,7 @@ func New() *App {
 		os.Exit(1)
 	}
 
-	tM := token.NewManager(a.cfg.Salt)
+	tM := scrambler.New(a.cfg.Salt)
 
 	rS := storage.NewRentStorage(a.db, tM)
 

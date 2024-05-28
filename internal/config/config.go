@@ -15,7 +15,7 @@ type Config struct {
 	TgToken    string         `env:"TG_API_BOT_TOKEN" env-required:"true"`
 	TgBotHost  string         `yaml:"tgBothost"`
 	TgAdmins   []string       `env:"TG_API_BOT_ADMINS" env-required:"true"`
-	Salt       string         `env:"TG_SALT" env-required:"true"`
+	Salt       string         `env:"TG_SALT" env-required:"true"` // 16 bytes for AES-128
 	CtxTimeout time.Duration  `yaml:"ctx_timeout"`
 	Storage    Postgres       `yaml:"psql_storage"`
 	Server     ApiServer      `yaml:"api_server"`

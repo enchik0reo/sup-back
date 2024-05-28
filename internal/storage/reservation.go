@@ -2,26 +2,10 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
 	"github.com/enchik0reo/sup-back/internal/models"
 )
-
-type Tokener interface {
-	Create(phone string) (string, error)
-	Parse(tokenString string) (string, error)
-}
-
-type RentStoage struct {
-	token Tokener
-
-	db *sql.DB
-}
-
-func NewRentStorage(db *sql.DB, t Tokener) *RentStoage {
-	return &RentStoage{db: db, token: t}
-}
 
 func (s *RentStoage) GetReserved(ctx context.Context, from, to string) ([]models.Sup, error) {
 	stmt, err := s.db.PrepareContext(ctx, `SELECT r.day, r.fk_sup_id, s.model_name, s.price

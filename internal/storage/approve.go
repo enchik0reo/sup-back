@@ -28,9 +28,9 @@ func (s *RentStoage) GetApprovingList(ctx context.Context) ([]models.Approve, er
 	for rows.Next() {
 		approve := models.Approve{}
 		info := ""
-		phoneToken := ""
+		phoneCipher := ""
 
-		if err := rows.Scan(&approve.ID, &phoneToken, &approve.ClientName, &approve.FullPrice, &info); err != nil {
+		if err := rows.Scan(&approve.ID, &phoneCipher, &approve.ClientName, &approve.FullPrice, &info); err != nil {
 			return nil, fmt.Errorf("can't scan row: %w", err)
 		}
 
@@ -41,7 +41,7 @@ func (s *RentStoage) GetApprovingList(ctx context.Context) ([]models.Approve, er
 
 		approve.SupsInfo = supInfo
 
-		phone, err := s.token.Parse(phoneToken)
+		phone, err := s.scrambler.Decrypt(phoneCipher)
 		if err != nil {
 			return nil, err
 		}
@@ -75,9 +75,9 @@ func (s *RentStoage) GetApprovedList(ctx context.Context) ([]models.Approve, err
 	for rows.Next() {
 		approve := models.Approve{}
 		info := ""
-		phoneToken := ""
+		phoneCipher := ""
 
-		if err := rows.Scan(&approve.ID, &phoneToken, &approve.ClientName, &approve.FullPrice, &info); err != nil {
+		if err := rows.Scan(&approve.ID, &phoneCipher, &approve.ClientName, &approve.FullPrice, &info); err != nil {
 			return nil, fmt.Errorf("can't scan row: %w", err)
 		}
 
@@ -88,7 +88,7 @@ func (s *RentStoage) GetApprovedList(ctx context.Context) ([]models.Approve, err
 
 		approve.SupsInfo = supInfo
 
-		phone, err := s.token.Parse(phoneToken)
+		phone, err := s.scrambler.Decrypt(phoneCipher)
 		if err != nil {
 			return nil, err
 		}
@@ -114,12 +114,12 @@ func (s *RentStoage) CreateApprove(ctx context.Context, approve models.Approve) 
 		return 0, fmt.Errorf("can't make info: %w", err)
 	}
 
-	phoneToken, err := s.token.Create(approve.ClientNumber)
+	phoneCipher, err := s.scrambler.Encrypt(approve.ClientNumber)
 	if err != nil {
 		return 0, fmt.Errorf("can't create token: %w", err)
 	}
 
-	row := stmt.QueryRowContext(ctx, phoneToken, approve.ClientName, approve.FullPrice, info)
+	row := stmt.QueryRowContext(ctx, phoneCipher, approve.ClientName, approve.FullPrice, info)
 
 	if err := row.Err(); err != nil {
 		return 0, fmt.Errorf("can't create approve: %w", err)

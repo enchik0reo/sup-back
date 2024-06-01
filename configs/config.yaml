@@ -1,5 +1,4 @@
-# levels of logging: "local"; "local_info"; "prod"
-env: "local"
+env: "info" # levels of logging: "debug"/"info"/"json"
 
 ctx_timeout: 8s
 
@@ -7,7 +6,7 @@ tgBothost: "api.telegram.org"
 
 psql_storage:
   db_driver: "postgres"
-  host: "0.0.0.0"
+  host: "postgres"
   port: "5432"
   dbname: "sups"
   user: "postgres"

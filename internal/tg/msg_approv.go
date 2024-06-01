@@ -96,7 +96,7 @@ func viewApproveDelete(approve models.Approve, datas ...string) ViewFunc {
 			return fmt.Errorf("can't delete reserved: %v", err)
 		}
 
-		_, err = bot.stor.CancelApprove(ctx, approve.ID, approve.ClientNumber)
+		_, err = bot.stor.CancelApprove(ctx, approve.ID)
 		if err != nil {
 			return fmt.Errorf("can't delete reserved: %v", err)
 		}

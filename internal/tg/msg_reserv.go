@@ -101,7 +101,10 @@ func viewReservationApprove(approve models.Approve, datas ...string) ViewFunc {
 			}
 		}()
 
-		approveToStorage(ctx, bot, approve)
+		err := approveToStorage(ctx, bot, approve)
+		if err != nil {
+			return fmt.Errorf("can't approve in storage: %w", err)
+		}
 
 		msg := tgbotapi.NewMessage(update.CallbackQuery.Message.Chat.ID, approved)
 
@@ -114,7 +117,7 @@ func viewReservationApprove(approve models.Approve, datas ...string) ViewFunc {
 }
 
 func approveToStorage(ctx context.Context, bot *Bot, approve models.Approve) error {
-	_, err := bot.stor.ConfirmApprove(ctx, approve.ID, approve.ClientNumber)
+	_, err := bot.stor.ConfirmApprove(ctx, approve.ID)
 	if err != nil {
 		return fmt.Errorf("can't confirm approve: %v", err)
 	}
@@ -159,7 +162,7 @@ func viewReservationDecline(approve models.Approve, datas ...string) ViewFunc {
 			}
 		}()
 
-		_, err := bot.stor.CancelApprove(ctx, approve.ID, approve.ClientNumber)
+		_, err := bot.stor.CancelApprove(ctx, approve.ID)
 		if err != nil {
 			return fmt.Errorf("can't decline approve: %v", err)
 		}

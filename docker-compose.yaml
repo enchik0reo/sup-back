@@ -1,6 +1,15 @@
 version: '3.8'
 
 services:      
+  sup_back:
+    build:
+      context: ./
+    depends_on:
+      - postgres
+    ports:
+      - "8008:8008"
+    command: /bin/sup
+
   postgres:
     image: postgres:16.1-bullseye
     restart: always

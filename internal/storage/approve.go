@@ -134,15 +134,15 @@ func (s *RentStoage) CreateApprove(ctx context.Context, approve models.Approve) 
 	return id, nil
 }
 
-func (s *RentStoage) ConfirmApprove(ctx context.Context, id int64, phone string) (int64, error) {
+func (s *RentStoage) ConfirmApprove(ctx context.Context, id int64) (int64, error) {
 	stmt, err := s.db.PrepareContext(ctx, `UPDATE approve SET status = 2
-	WHERE approve_id = $1 AND client_phone = $2 RETURNING approve_id`)
+	WHERE approve_id = $1 RETURNING approve_id`)
 	if err != nil {
 		return 0, fmt.Errorf("can't prepare statement: %w", err)
 	}
 	defer stmt.Close()
 
-	row := stmt.QueryRowContext(ctx, id, phone)
+	row := stmt.QueryRowContext(ctx, id)
 
 	if err := row.Err(); err != nil {
 		return 0, fmt.Errorf("can't confirm approve: %w", err)
@@ -155,15 +155,15 @@ func (s *RentStoage) ConfirmApprove(ctx context.Context, id int64, phone string)
 	return id, nil
 }
 
-func (s *RentStoage) CancelApprove(ctx context.Context, id int64, phone string) (int64, error) {
+func (s *RentStoage) CancelApprove(ctx context.Context, id int64) (int64, error) {
 	stmt, err := s.db.PrepareContext(ctx, `UPDATE approve SET status = 0
-	WHERE approve_id = $1 AND client_phone = $2 RETURNING approve_id`)
+	WHERE approve_id = $1 RETURNING approve_id`)
 	if err != nil {
 		return 0, fmt.Errorf("can't prepare statement: %w", err)
 	}
 	defer stmt.Close()
 
-	row := stmt.QueryRowContext(ctx, id, phone)
+	row := stmt.QueryRowContext(ctx, id)
 
 	if err := row.Err(); err != nil {
 		return 0, fmt.Errorf("can't cancel approve: %w", err)

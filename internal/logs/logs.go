@@ -16,9 +16,9 @@ type CustomLog struct {
 }
 
 const (
-	envLocal     = "local"
-	envLocalInfo = "local_info"
-	envProd      = "prod"
+	envLocal     = "debug"
+	envLocalInfo = "info"
+	envProd      = "json"
 )
 
 // NewLogger creates a new instance of CustomLog ...

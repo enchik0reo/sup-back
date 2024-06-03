@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/enchik0reo/sup-back/internal/models"
 )
@@ -116,14 +117,25 @@ func supInfo(reserved []models.Reserved) []models.Sup {
 		return nil
 	}
 
-	sups := make([]models.Sup, 3)
+	temp := make(map[int64]models.Sup)
 
 	for _, res := range reserved {
-		sups[res.ModelID-1].ID = res.ModelID
-		sups[res.ModelID-1].Name = res.ModelName
-		sups[res.ModelID-1].Price = res.ModelPrice
-		sups[res.ModelID-1].ReservedDays = append(sups[res.ModelID].ReservedDays, res.Day)
+		s := temp[res.ModelID]
+		s.ID = res.ModelID
+		s.Name = res.ModelName
+		s.Price = res.ModelPrice
+		s.ReservedDays = append(s.ReservedDays, res.Day)
+
+		temp[res.ModelID] = s
 	}
+
+	sups := make([]models.Sup, 0, len(temp))
+
+	for _, sup := range temp {
+		sups = append(sups, sup)
+	}
+
+	sort.SliceStable(sups, func(i, j int) bool { return sups[i].ID < sups[j].ID })
 
 	return sups
 }

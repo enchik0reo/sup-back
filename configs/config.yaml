@@ -6,7 +6,7 @@ tgBothost: "api.telegram.org"
 
 psql_storage:
   db_driver: "postgres"
-  host: "postgres"
+  host: "storage"
   port: "5432"
   dbname: "sups"
   user: "postgres"

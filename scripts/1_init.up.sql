@@ -27,8 +27,6 @@ ADD CONSTRAINT fk_reserved_sup_id FOREIGN KEY (fk_sup_id) REFERENCES sups (sup_i
 ALTER TABLE reserved 
 ADD CONSTRAINT fk_reserved_approve_id FOREIGN KEY (fk_approve_id) REFERENCES approve (approve_id) ON DELETE CASCADE;
 
-CREATE INDEX idx_approve_id_phone ON approve(approve_id, client_phone);
-
 CREATE INDEX idx_reserved_day ON reserved(day);
 
 CREATE INDEX idx_approve_status ON approve(status);

@@ -10,7 +10,7 @@ type SupInfo struct {
 
 type Sup struct {
 	SupInfo
-	ReservedDays []time.Time `json:"reserved_days"`
+	ReservedDays []time.Time `json:"reserved_days,omitempty"`
 }
 
 type ApproveSup struct {

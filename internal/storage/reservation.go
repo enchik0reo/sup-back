@@ -3,17 +3,16 @@ package storage
 import (
 	"context"
 	"fmt"
-	"sort"
+	"time"
 
 	"github.com/enchik0reo/sup-back/internal/models"
 )
 
 func (s *RentStoage) GetReserved(ctx context.Context, from, to string) ([]models.Sup, error) {
-	stmt, err := s.db.PrepareContext(ctx, `SELECT r.day, r.fk_sup_id, s.model_name, s.price
-	FROM reserved r
-	INNER JOIN sups s ON r.fk_sup_id = s.sup_id
-	WHERE r.day BETWEEN $1 AND $2
-	ORDER BY r.day`)
+	stmt, err := s.db.PrepareContext(ctx, `SELECT day, fk_sup_id
+	FROM reserved
+	WHERE day BETWEEN $1 AND $2
+	ORDER BY day`)
 	if err != nil {
 		return nil, fmt.Errorf("can't prepare statement: %w", err)
 	}
@@ -30,14 +29,19 @@ func (s *RentStoage) GetReserved(ctx context.Context, from, to string) ([]models
 	for rows.Next() {
 		reserv := models.Reserved{}
 
-		if err := rows.Scan(&reserv.Day, &reserv.ModelID, &reserv.ModelName, &reserv.ModelPrice); err != nil {
+		if err := rows.Scan(&reserv.Day, &reserv.ModelID); err != nil {
 			return nil, fmt.Errorf("can't scan row: %w", err)
 		}
 
 		reserves = append(reserves, reserv)
 	}
 
-	sups := supInfo(reserves)
+	supsList, err := s.GetPrices(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("can't get sups: %w", err)
+	}
+
+	sups := supInfo(reserves, supsList)
 
 	return sups, nil
 }
@@ -112,30 +116,23 @@ func (s *RentStoage) DeleteReserved(ctx context.Context, approveID int64) (int64
 	return id, nil
 }
 
-func supInfo(reserved []models.Reserved) []models.Sup {
-	if len(reserved) == 0 {
-		return nil
-	}
-
-	temp := make(map[int64]models.Sup)
+func supInfo(reserved []models.Reserved, supsList []models.SupInfo) []models.Sup {
+	temp := make(map[int64][]time.Time, len(supsList))
 
 	for _, res := range reserved {
-		s := temp[res.ModelID]
-		s.ID = res.ModelID
-		s.Name = res.ModelName
-		s.Price = res.ModelPrice
-		s.ReservedDays = append(s.ReservedDays, res.Day)
-
-		temp[res.ModelID] = s
+		rd := temp[res.ModelID]
+		rd = append(rd, res.Day)
+		temp[res.ModelID] = rd
 	}
 
-	sups := make([]models.Sup, 0, len(temp))
+	sups := make([]models.Sup, len(supsList))
 
-	for _, sup := range temp {
-		sups = append(sups, sup)
+	for i, sup := range supsList {
+		sups[i].ID = sup.ID
+		sups[i].Name = sup.Name
+		sups[i].Price = sup.Price
+		sups[i].ReservedDays = temp[sup.ID]
 	}
-
-	sort.SliceStable(sups, func(i, j int) bool { return sups[i].ID < sups[j].ID })
 
 	return sups
 }

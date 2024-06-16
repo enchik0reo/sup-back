@@ -34,6 +34,14 @@ type ApproveData struct {
 }
 
 type Reserved struct {
+	Day        *time.Time
+	ModelID    int64
+	ModelName  string
+	ModelPrice int64
+	ApproveID  int64
+}
+
+type ApproveReserv struct {
 	Day        time.Time
 	ModelID    int64
 	ModelName  string

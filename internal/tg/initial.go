@@ -13,7 +13,7 @@ import (
 
 type Storage interface {
 	GetApprovingList(ctx context.Context) ([]models.Approve, error)
-	CreateReservedList(ctx context.Context, reserveList []models.Reserved) error
+	CreateReservedList(ctx context.Context, reserveList []models.ApproveReserv) error
 	ConfirmApprove(ctx context.Context, id int64) (int64, error)
 	CancelApprove(ctx context.Context, id int64) (int64, error)
 

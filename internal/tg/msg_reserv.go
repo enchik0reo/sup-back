@@ -123,14 +123,14 @@ func approveToStorage(ctx context.Context, bot *Bot, approve models.Approve) err
 	}
 
 	for _, info := range approve.SupsInfo {
-		r := models.Reserved{}
+		r := models.ApproveReserv{}
 		r.ApproveID = approve.ID
 		r.ModelID = info.ID
 
 		temp := info.From
 		r.Day = temp
 
-		reserveList := make([]models.Reserved, 0, len(approve.SupsInfo))
+		reserveList := make([]models.ApproveReserv, 0, len(approve.SupsInfo))
 
 		reserveList = append(reserveList, r)
 

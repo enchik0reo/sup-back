@@ -122,6 +122,8 @@ func approveToStorage(ctx context.Context, bot *Bot, approve models.Approve) err
 		return fmt.Errorf("can't confirm approve: %v", err)
 	}
 
+	reserveList := make([]models.ApproveReserv, 0, len(approve.SupsInfo))
+
 	for _, info := range approve.SupsInfo {
 		r := models.ApproveReserv{}
 		r.ApproveID = approve.ID
@@ -129,8 +131,6 @@ func approveToStorage(ctx context.Context, bot *Bot, approve models.Approve) err
 
 		temp := info.From
 		r.Day = temp
-
-		reserveList := make([]models.ApproveReserv, 0, len(approve.SupsInfo))
 
 		reserveList = append(reserveList, r)
 
@@ -144,11 +144,10 @@ func approveToStorage(ctx context.Context, bot *Bot, approve models.Approve) err
 				break
 			}
 		}
+	}
 
-		if err := bot.stor.CreateReservedList(ctx, reserveList); err != nil {
-			return err
-		}
-
+	if err := bot.stor.CreateReservedList(ctx, reserveList); err != nil {
+		return err
 	}
 
 	return nil

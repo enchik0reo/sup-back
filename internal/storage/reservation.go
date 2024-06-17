@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/enchik0reo/sup-back/internal/models"
 )
@@ -65,25 +66,25 @@ func (s *RentStoage) CreateReserved(ctx context.Context, reserve models.Reserved
 }
 
 func (s *RentStoage) CreateReservedList(ctx context.Context, reserveList []models.ApproveReserv) error {
-	stmt, err := s.db.PrepareContext(ctx, `INSERT INTO reserved (day, fk_sup_id, fk_approve_id)
-	VALUES ($1, $2, $3) RETURNING reserv_id`)
+	query, args := reserveListQueryAndArgs(reserveList)
+
+	stmt, err := s.db.PrepareContext(ctx, query)
 	if err != nil {
 		return fmt.Errorf("can't prepare statement: %w", err)
 	}
 	defer stmt.Close()
 
-	for _, reserve := range reserveList {
-		row := stmt.QueryRowContext(ctx, reserve.Day, reserve.ModelID, reserve.ApproveID)
+	rows, err := stmt.QueryContext(ctx, args...)
+	if err != nil {
+		return fmt.Errorf("can't create reserve: %w", err)
+	}
 
-		if err := row.Err(); err != nil {
-			return fmt.Errorf("can't create reserve: %w", err)
-		}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("can't close rows: %w", err)
+	}
 
-		var id int64
-
-		if err := row.Scan(&id); err != nil {
-			return fmt.Errorf("can't get last insert id: %w", err)
-		}
+	if err := stmt.Close(); err != nil {
+		return fmt.Errorf("can't close statement: %w", err)
 	}
 
 	return nil
@@ -141,4 +142,32 @@ func supInfo(reserved []models.Reserved) []models.Sup {
 	sort.SliceStable(sups, func(i, j int) bool { return sups[i].ID < sups[j].ID })
 
 	return sups
+}
+
+func reserveListQueryAndArgs(reserveList []models.ApproveReserv) (string, []interface{}) {
+	args := make([]interface{}, 0, len(reserveList))
+
+	qb := strings.Builder{}
+	qb.Grow(len(reserveList))
+
+	qb.WriteString("INSERT INTO reserved (day, fk_sup_id, fk_approve_id) VALUES")
+
+	argsCount := 1
+
+	for i, reserve := range reserveList {
+		if i == len(reserveList)-1 {
+			qp := fmt.Sprintf(" ($%d, $%d, $%d)", argsCount, argsCount+1, argsCount+2)
+
+			qb.WriteString(qp)
+		} else {
+			qp := fmt.Sprintf(" ($%d, $%d, $%d),", argsCount, argsCount+1, argsCount+2)
+			argsCount = argsCount + 3
+
+			qb.WriteString(qp)
+		}
+
+		args = append(args, reserve.Day, reserve.ModelID, reserve.ApproveID)
+	}
+
+	return qb.String(), args
 }

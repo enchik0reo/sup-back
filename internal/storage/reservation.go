@@ -42,29 +42,6 @@ func (s *RentStoage) GetReserved(ctx context.Context, from, to string) ([]models
 	return sups, nil
 }
 
-func (s *RentStoage) CreateReserved(ctx context.Context, reserve models.Reserved) (int64, error) {
-	stmt, err := s.db.PrepareContext(ctx, `INSERT INTO reserved (day, fk_sup_id, fk_approve_id)
-	VALUES ($1, $2, $3) RETURNING reserv_id`)
-	if err != nil {
-		return 0, fmt.Errorf("can't prepare statement: %w", err)
-	}
-	defer stmt.Close()
-
-	row := stmt.QueryRowContext(ctx, reserve.Day, reserve.ModelID, reserve.ApproveID)
-
-	if err := row.Err(); err != nil {
-		return 0, fmt.Errorf("can't create reserve: %w", err)
-	}
-
-	var id int64
-
-	if err := row.Scan(&id); err != nil {
-		return 0, fmt.Errorf("can't get last insert id: %w", err)
-	}
-
-	return id, nil
-}
-
 func (s *RentStoage) CreateReservedList(ctx context.Context, reserveList []models.ApproveReserv) error {
 	query, args := reserveListQueryAndArgs(reserveList)
 
@@ -81,10 +58,6 @@ func (s *RentStoage) CreateReservedList(ctx context.Context, reserveList []model
 
 	if err := rows.Close(); err != nil {
 		return fmt.Errorf("can't close rows: %w", err)
-	}
-
-	if err := stmt.Close(); err != nil {
-		return fmt.Errorf("can't close statement: %w", err)
 	}
 
 	return nil
